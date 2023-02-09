@@ -9,6 +9,7 @@
     export const readOnly = 'readonly';
     export let isLoading = false;
     export let error = null;
+    export let disableAdding = false;
 
     let txtTodo;
     let ctrlInput;
@@ -111,8 +112,8 @@
         </div>
     {/if}    
         <form  on:submit|preventDefault={handleSubmit} class="add-todo-form">
-        <input class="add-todo-btn"  bind:value={txtTodo} bind:this={ctrlInput} placeholder="New todo"/>
-        <Button disabled={!txtTodo}>Add</Button>
+        <input class="add-todo-btn"  bind:value={txtTodo} bind:this={ctrlInput} placeholder="New todo" disabled={disableAdding}/>
+        <Button disabled={!txtTodo || disableAdding}>Add</Button>
     </form>    
 </div>
 

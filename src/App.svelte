@@ -6,6 +6,7 @@
   import {v4 as uuid} from "uuid";
   import { tick } from "svelte";
   import { exclude_internal_props, onMount } from "svelte/internal";
+  import { fade } from "svelte/transition";
   
   let todos = [];
   // [
@@ -18,6 +19,8 @@
   let showList = true;
   let error = null;
   let isLoading = false;
+  let isAdding = false;
+  let disabledItems = [];
 
   //$: console.log(todos);
 
@@ -49,6 +52,30 @@
   const handleAddTodo = async (e) => {
 
     e.preventDefault();
+    isAdding = true;
+    //Tocar para a API
+    await fetch('https://jsonplaceholder.typicode.com/todos', {
+      method: "POST",
+      body: JSON.stringify({
+        title: e.detail.title,
+        done: false
+      }),
+      headers: {
+        'Content-type': 'application/json'
+      }
+    }).then(async res => {
+      if(res.ok){
+        const todo = await res.json();
+        todos = [...todos, { ...todo, id: uuid()}];
+        todoList.clearInput();
+      } else {
+        alert('Deu erro');
+      }
+    });
+    isAdding = false;
+    await tick();
+    todoList.focusInput();
+
     //Essa alternativa não funciona com immutable = true
     /*
     
@@ -65,35 +92,76 @@
     //console.log(document.querySelectorAll('.todo-list ul li'));
 
     //setTimeout(() => {
-      todos = [
-        ...todos,
-        {
-        id: uuid(),
-        title: e.detail.title,
-        done: false
-      }];
-      todoList.clearInput();
+      // todos = [
+      //   ...todos,
+      //   {
+      //   id: uuid(),
+      //   title: e.detail.title,
+      //   done: false
+      // }];
+      // todoList.clearInput();
 
     //}, 2);
 
-    await tick();
+    //await tick();
     //console.log(document.querySelectorAll('.todo-list ul li'));
 
   };
 
-  const handleRemoveTodo = (e) => {
-    todos = todos.filter(t => t.id !== e.detail.id);
-  };
-
-  const handleToggleTodo = (e) => {
+  const handleRemoveTodo = async (e) => {
     
-    todos = todos.map( t => {
-      if (t.id === e.detail.id){
-        return { ...t, done: e.detail.value };
+    const id = e.detail.id;
+
+    if (disabledItems.includes(id)) return;
+    disabledItems = [ ...disabledItems, id];
+
+    await fetch(`https://jsonplaceholder.typicode.com/todos/${id}`, {
+      method: "DELETE"
+    }).then(res => {
+      if(res.ok){
+        todos = todos.filter(t => t.id !== e.detail.id);
       } else {
-        return { ...t };
+        alert('Deu erro');
       }
     });
+
+    disabledItems = disabledItems.filter(i => i !== id);
+
+    
+  };
+
+  const handleToggleTodo =  async (e) => {
+    
+    const id = e.detail.id;
+    const value = e.detail.value;
+
+    if (disabledItems.includes(id)) return;
+    disabledItems = [ ...disabledItems, id];
+
+    await fetch(`https://jsonplaceholder.typicode.com/todos/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        completed: value, done: value
+      })
+    }).then(async res => {
+      if(res.ok){
+        
+        const updatedTodo = await res.json();
+        console.log(updatedTodo);
+        todos = todos.map( t => {
+          if(t.id === id){
+            return { ...updatedTodo, done: value};
+          } else {
+            return { ...t };
+          }
+        });
+      } else {
+        alert('Deu erro');
+      }
+    });
+
+    disabledItems = disabledItems.filter(i => i !== id);
+
   };
 
 </script>
@@ -109,7 +177,7 @@
 
 {#if showList}
   
-    <div style:max-width="350px">
+    <div style:max-width="350px" transition:fade>
       <TodoList {todos} 
         bind:this={todoList}
         on:addTodo={handleAddTodo}
@@ -117,6 +185,7 @@
         on:toggleTodo={handleToggleTodo}
         {error}
         {isLoading}
+        disableAdding={isAdding}
       />
     </div>
   
@@ -127,4 +196,4 @@
 
 <style>
   
-</style>
+</style>  
